@@ -48,7 +48,7 @@ export type rateLimitOptions = {
   * @param {Number} options.perMilliseconds amount of time to limit concurrent requests.
   * @returns {Object} axios instance with interceptors added
   */
-export default function axiosRateLimit(
+export default function rateLimit(
     axiosInstance: AxiosInstance,
     options: rateLimitOptions
 ): RateLimitedAxiosInstance;

@@ -1,7 +1,5 @@
-
 const axiosRateLimit = {
-
-  counter: 0, 
+  instance_counter: 0,
 
   rateLimit(inst, options) {
     const limiter = {
@@ -10,15 +8,22 @@ const axiosRateLimit = {
       timeoutId: null,
       cancelTokenAware: false,
       trueRPS: 0,
-      counter: 0,
+      instance_counter: 0,
+      interceptors: { request: null, response: null },
+
       rpsCallback: () => {},
 
       setRateLimitOptions(opts) {
         if (opts.maxRPS) {
-          opts.maxRequests = opts.maxRPS
-          opts.perMilliseconds = 1000
+          limiter.setMaxRPS(opts.maxRPS)
+        } else {
+          limiter.perMilliseconds = opts.perMilliseconds
+          limiter.maxRequests = opts.maxRequests
         }
-        Object.assign(options, opts)
+      },
+
+      setMaxRPS(rps) {
+        limiter.setRateLimitOptions({ maxRequests: rps, perMilliseconds: 1000 })
       },
 
       getQueue() {
@@ -26,7 +31,11 @@ const axiosRateLimit = {
       },
 
       getMaxRPS() {
-        return options.maxRequests / (options.perMilliseconds / 1000)
+        return limiter.maxRequests / (limiter.perMilliseconds / 1000)
+      },
+
+      rpsLogger(rps) {
+        limiter.trueRPS = rps
       },
 
       setCancelTokenAware() {
@@ -39,8 +48,11 @@ const axiosRateLimit = {
 
       dequeue() {
         if (!limiter.queue.length) return
-        if (limiter.timeSlotRequests === options.maxRequests) {
-          limiter.timeoutId?.ref?.()
+
+        if (limiter.timeSlotRequests === limiter.maxRequests) {
+          if (limiter.timeoutId && typeof limiter.timeoutId.ref === 'function') {
+            limiter.timeoutId.ref()
+          }
           return
         }
 
@@ -49,22 +61,34 @@ const axiosRateLimit = {
 
         if (limiter.timeSlotRequests === 0) {
           limiter.timeoutId = setTimeout(() => {
-            limiter.trueRPS = limiter.timeSlotRequests
+            limiter.rpsLogger(limiter.timeSlotRequests)
             limiter.rpsCallback(
               limiter.trueRPS,
               limiter.getMaxRPS(),
-              limiter.counter
+              limiter.instance_counter
             )
             limiter.timeSlotRequests = 0
             limiter.dequeue()
-          }, options.perMilliseconds)
+          }, limiter.perMilliseconds)
 
-          if (limiter.timeoutId?.unref && limiter.queue.length === 0) {
+          if (typeof limiter.timeoutId.unref === 'function' && limiter.queue.length === 0) {
             limiter.timeoutId.unref()
           }
         }
 
         if (ok) limiter.timeSlotRequests += 1
+      },
+
+      
+      throwIfCancellationRequested(request) {
+        if (request.cancelToken) {
+          request.cancelToken.throwIfRequested()
+        }
+      },
+
+      handleResponse(response) {
+        limiter.dequeue()
+        return response
       },
 
       handleRequest(request) {
@@ -73,7 +97,7 @@ const axiosRateLimit = {
               limiter.queue.push({
                 resolve: () => {
                   try {
-                    if (request.cancelToken) request.cancelToken.throwIfRequested()
+                    limiter.throwIfCancellationRequested(request)
                   } catch (err) {
                     reject(err)
                     return false
@@ -91,19 +115,22 @@ const axiosRateLimit = {
             })
       },
 
-      handleResponse(response) {
-        limiter.dequeue()
-        return response
-      },
-
       enable(inst) {
-        inst.interceptors.request.use(limiter.handleRequest, Promise.reject)
-        inst.interceptors.response.use(limiter.handleResponse, Promise.reject)
-        axiosRateLimit.counter += 1
-        limiter.counter = axiosRateLimit.counter
+        const handleError = (error) => Promise.reject(error)
+        limiter.interceptors.request = inst.interceptors.request.use(
+          limiter.handleRequest,
+          handleError
+        )
+        limiter.interceptors.response = inst.interceptors.response.use(
+          limiter.handleResponse,
+          handleError
+        )
+        axiosRateLimit.instance_counter += 1
+        limiter.instance_counter = axiosRateLimit.instance_counter
+
         inst.getQueue = limiter.getQueue
         inst.getMaxRPS = limiter.getMaxRPS
-        inst.setMaxRPS = (rps) => limiter.setRateLimitOptions({ maxRPS: rps })
+        inst.setMaxRPS = limiter.setMaxRPS
         inst.getTrueRPS = (fn) => (limiter.rpsCallback = fn)
         inst.setRateLimitOptions = limiter.setRateLimitOptions
         inst.setCancelTokenAware = limiter.setCancelTokenAware

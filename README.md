@@ -20,14 +20,16 @@ This custom version restructures the original library from a factory pattern int
 - **Dynamic injection of delay, pause, jitter, and burst behavior** *(in active development)*
 - **Optional cancel token awareness for safely skipping queued requests** *(experimental)*
 
-This architecture supports future features like burst grouping, jitter profiles, and adaptive throttling—tailored for adversarial conditions and advanced traffic modulation.
+This architecture supports future features like burst grouping, jitter profiles, 
+and adaptive throttling—tailored for adversarial conditions and advanced traffic modulation.
 
 
 ## 📦 Installation
 
 ```bash
 npm install axios-rate-limit
-⚠️ This currently installs the upstream version. Clone and link locally until this fork is published under a new name.
+⚠️ This currently installs the upstream version. 
+Clone and link locally until this fork is published under a new name.
 
 ---
 

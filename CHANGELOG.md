@@ -12,7 +12,5 @@
     console.log('maxRPS:', maxRPS)
   })
 * Added `setCancelTokenAware()` to optionally enable safe cancel token handling.
-* Improved queue scheduling logic with early unref and rejection fallback.
-* Cleaned up internal method structure and exposed richer introspection hooks.
 
 

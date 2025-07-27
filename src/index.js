@@ -1,6 +1,8 @@
 
 const axiosRateLimit = {
 
+  counter: 0, 
+
   rateLimit(inst, options) {
     const limiter = {
       queue: [],
@@ -8,7 +10,7 @@ const axiosRateLimit = {
       timeoutId: null,
       cancelTokenAware: false,
       trueRPS: 0,
-      instance_counter: 0,
+      counter: 0,
       rpsCallback: () => {},
 
       setRateLimitOptions(opts) {
@@ -51,7 +53,7 @@ const axiosRateLimit = {
             limiter.rpsCallback(
               limiter.trueRPS,
               limiter.getMaxRPS(),
-              limiter.instance_counter
+              limiter.counter
             )
             limiter.timeSlotRequests = 0
             limiter.dequeue()
@@ -97,7 +99,8 @@ const axiosRateLimit = {
       enable(inst) {
         inst.interceptors.request.use(limiter.handleRequest, Promise.reject)
         inst.interceptors.response.use(limiter.handleResponse, Promise.reject)
-        limiter.instance_counter += 1
+        axiosRateLimit.counter += 1
+        limiter.counter = axiosRateLimit.counter
         inst.getQueue = limiter.getQueue
         inst.getMaxRPS = limiter.getMaxRPS
         inst.setMaxRPS = (rps) => limiter.setRateLimitOptions({ maxRPS: rps })

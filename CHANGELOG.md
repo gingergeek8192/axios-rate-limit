@@ -14,3 +14,12 @@
 * Added `setCancelTokenAware()` to optionally enable safe cancel token handling.
 
 
+## 1.5.2-custom
+* Added instance tracking to `getTrueRPS(callback)` for multiple instance tracking.
+* Added internal logic for per instance rate limiting and tracking.
+```js
+    this.instance.getTrueRPS((trueRPS, maxRPS, instance_counter) => {
+        console.log('trueRPS:', trueRPS)
+        console.log('maxRPS:', maxRPS)
+        console.log('instance_counter:', instance_counter)
+    })

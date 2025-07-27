@@ -1,138 +1,116 @@
+
 const axiosRateLimit = {
-  queue: [],
-  timeSlotRequests: 0,
-  maxRequests: 1,
-  perMilliseconds: 1000,
-  timeoutId: null,
-  cancelTokenAware: false,
-  trueRPS: 0,
-  interceptors: {
-    request: null,
-    response: null
-  },
-
-    rpsCallback: () => {},
-    getTrueRPS(fn) {
-      this.rpsCallback = fn
-    },
-
-  setRateLimitOptions(options) {
-    if (options.maxRPS) {
-      this.setMaxRPS(options.maxRPS)
-    } else {
-      this.perMilliseconds = options.perMilliseconds
-      this.maxRequests = options.maxRequests
-    }
-  },
-
-  setMaxRPS(rps) {
-    this.setRateLimitOptions({ maxRequests: rps, perMilliseconds: 1000 })
-  },
-
-  getQueue() {
-    return this.queue
-  },
-
-  getMaxRPS() {
-    return this.maxRequests / (this.perMilliseconds / 1000)
-  },
-
-  rpsLogger(rps) {
-    this.trueRPS = rps
-  },
-
-  setCancelTokenAware() {
-    this.cancelTokenAware = true
-  },
-
-  shiftInitial() {
-    setTimeout(() => this.dequeue(), 0)
-  },
-
-  dequeue() {
-    if (!this.queue.length) return
-
-    if (this.timeSlotRequests === this.maxRequests) {
-      if (this.timeoutId && typeof this.timeoutId.ref === 'function') {
-        this.timeoutId.ref()
-      }
-      return
-    }
-
-    const { resolve, request } = this.queue.shift()
-    const ok = resolve(request) !== false
-
-    if (this.timeSlotRequests === 0) {
-      this.timeoutId = setTimeout(() => {
-        this.rpsLogger(this.timeSlotRequests)
-        this.rpsCallback(this.trueRPS, this.getMaxRPS())
-        this.timeSlotRequests = 0
-        this.dequeue()
-      }, this.perMilliseconds)
-
-      if (typeof this.timeoutId.unref === 'function' && this.queue.length === 0) {
-        this.timeoutId.unref()
-      }
-    }
-
-    if (ok) this.timeSlotRequests += 1
-  },
-
-  handleResponse(response) {
-    this.dequeue()
-    return response
-  },
-
-  handleRequest(request) {
-    return this.cancelTokenAware ? new Promise((resolve, reject) => {
-          this.queue.push({
-            resolve: () => {
-              try {
-                if (request.cancelToken) {
-                  request.cancelToken.throwIfRequested()
-                }
-              } catch (err) {
-                reject(err)
-                return false
-              }
-              resolve(request)
-              return true
-            },
-            request
-          })
-          this.shiftInitial()
-        })
-      : new Promise((resolve) => {
-          this.queue.push({ resolve, request })
-          this.shiftInitial()
-        })
-  },
-
-  enable(inst) {
-    const handleError = (error) => Promise.reject(error)
-
-    this.interceptors.request = inst.interceptors.request.use(
-      this.handleRequest.bind(this),
-      handleError
-    )
-
-    this.interceptors.response = inst.interceptors.response.use(
-      this.handleResponse.bind(this),
-      handleError
-    )
-  },
 
   rateLimit(inst, options) {
-    this.setRateLimitOptions(options)
-    this.enable(inst)
-    inst.getQueue = this.getQueue.bind(this)
-    inst.getMaxRPS = this.getMaxRPS.bind(this)
-    inst.setMaxRPS = this.setMaxRPS.bind(this)
-    inst.getTrueRPS = this.getTrueRPS.bind(this)
-    inst.setRateLimitOptions = this.setRateLimitOptions.bind(this)
-    inst.setCancelTokenAware = this.setCancelTokenAware.bind(this)
+    const limiter = {
+      queue: [],
+      timeSlotRequests: 0,
+      timeoutId: null,
+      cancelTokenAware: false,
+      trueRPS: 0,
+      instance_counter: 0,
+      rpsCallback: () => {},
+
+      setRateLimitOptions(opts) {
+        if (opts.maxRPS) {
+          opts.maxRequests = opts.maxRPS
+          opts.perMilliseconds = 1000
+        }
+        Object.assign(options, opts)
+      },
+
+      getQueue() {
+        return limiter.queue
+      },
+
+      getMaxRPS() {
+        return options.maxRequests / (options.perMilliseconds / 1000)
+      },
+
+      setCancelTokenAware() {
+        limiter.cancelTokenAware = true
+      },
+
+      shiftInitial() {
+        setTimeout(() => limiter.dequeue(), 0)
+      },
+
+      dequeue() {
+        if (!limiter.queue.length) return
+        if (limiter.timeSlotRequests === options.maxRequests) {
+          limiter.timeoutId?.ref?.()
+          return
+        }
+
+        const { resolve, request } = limiter.queue.shift()
+        const ok = resolve(request) !== false
+
+        if (limiter.timeSlotRequests === 0) {
+          limiter.timeoutId = setTimeout(() => {
+            limiter.trueRPS = limiter.timeSlotRequests
+            limiter.rpsCallback(
+              limiter.trueRPS,
+              limiter.getMaxRPS(),
+              limiter.instance_counter
+            )
+            limiter.timeSlotRequests = 0
+            limiter.dequeue()
+          }, options.perMilliseconds)
+
+          if (limiter.timeoutId?.unref && limiter.queue.length === 0) {
+            limiter.timeoutId.unref()
+          }
+        }
+
+        if (ok) limiter.timeSlotRequests += 1
+      },
+
+      handleRequest(request) {
+        return limiter.cancelTokenAware
+          ? new Promise((resolve, reject) => {
+              limiter.queue.push({
+                resolve: () => {
+                  try {
+                    if (request.cancelToken) request.cancelToken.throwIfRequested()
+                  } catch (err) {
+                    reject(err)
+                    return false
+                  }
+                  resolve(request)
+                  return true
+                },
+                request
+              })
+              limiter.shiftInitial()
+            })
+          : new Promise((resolve) => {
+              limiter.queue.push({ resolve, request })
+              limiter.shiftInitial()
+            })
+      },
+
+      handleResponse(response) {
+        limiter.dequeue()
+        return response
+      },
+
+      enable(inst) {
+        inst.interceptors.request.use(limiter.handleRequest, Promise.reject)
+        inst.interceptors.response.use(limiter.handleResponse, Promise.reject)
+        limiter.instance_counter += 1
+        inst.getQueue = limiter.getQueue
+        inst.getMaxRPS = limiter.getMaxRPS
+        inst.setMaxRPS = (rps) => limiter.setRateLimitOptions({ maxRPS: rps })
+        inst.getTrueRPS = (fn) => (limiter.rpsCallback = fn)
+        inst.setRateLimitOptions = limiter.setRateLimitOptions
+        inst.setCancelTokenAware = limiter.setCancelTokenAware
+      }
+    }
+
+    limiter.setRateLimitOptions(options)
+    limiter.enable(inst)
     return inst
   }
 }
 
-module.exports = axiosRateLimit.rateLimit.bind(axiosRateLimit)
+module.exports = axiosRateLimit.rateLimit

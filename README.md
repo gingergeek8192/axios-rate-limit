@@ -13,7 +13,7 @@ This fork was heavily refactored to enable **advanced traffic shaping**, includi
 
 ## 🚀 Why This Fork?
 
-This custom version restructures the original library from a factory pattern into a **singleton object**, to better support:
+This custom version restructures the original library to better support:
 
 - Centralized control over queue state and internal timers ✅
 - Runtime analytics (`trueRPS` vs configured `maxRPS`) ✅
@@ -44,30 +44,35 @@ const http = rateLimit(axios.create(), {
   perMilliseconds: 1000,
   maxRPS: 2
 })
+Each call to `rateLimit()` produces a scoped limiter,  
+with isolated state across instances.
+
 
 // Requests 1 & 2 execute immediately
-http.get('https://example.com/api/v1/users?page=1')
-http.get('https://example.com/api/v1/users?page=2')
+instance.get('https://example.com/api/v1/users?page=1')
+instance.get('https://example.com/api/v1/users?page=2')
 
 // 3rd request delayed by 1 second
-http.get('https://example.com/api/v1/users?page=3')
+instance.get('https://example.com/api/v1/users?page=3')
 
 // Access queue state
-http.getQueue()
+instance.getQueue()
 
 // Hot-reload rate options at runtime
-http.setMaxRPS(3)
-http.setRateLimitOptions({ maxRequests: 6, perMilliseconds: 150 })
+instance.setMaxRPS(3)
+instance.setRateLimitOptions({ maxRequests: 6, perMilliseconds: 150 })
 
 // Enable cancelToken-aware behavior
-http.setCancelTokenAware()
+instance.setCancelTokenAware()
 
-📊 Advanced: Tracking Real-Time RPS
-Monitor live dispatched RPS with a callback:
-http.getTrueRPS((trueRPS, maxRPS) => {
-  console.log('trueRPS:', trueRPS)
-  console.log('maxRPS:', maxRPS)
-})
+// Tracking Real-Time RPS
+// Monitor live dispatched RPS with a callback, logs per p/s limit window
+
+    instance.getTrueRPS((trueRPS, maxRPS, instance_counter) => {
+        console.log('trueRPS:', trueRPS) // requests dequeued 
+        console.log('maxRPS:', maxRPS) // maximum requests
+        console.log('instance_counter:', instance_counter) // rate limiter instance attached
+    })
 
 🔄 Alternatives
 axios-rate-limit (original)

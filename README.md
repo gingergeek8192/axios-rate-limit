@@ -1,44 +1,74 @@
-# axios-rate-limit
+# axios-rate-limit (Custom Fork)
 
-[![npm version](https://img.shields.io/npm/v/axios-rate-limit.svg?style=flat-square)](https://www.npmjs.com/package/axios-rate-limit)
-[![npm downloads](https://img.shields.io/npm/dt/axios-rate-limit.svg?style=flat-square)](https://www.npmjs.com/package/axios-rate-limit)
-[![npm bundle size](https://img.shields.io/bundlephobia/minzip/axios-rate-limit?style=flat-square)](https://bundlephobia.com/package/axios-rate-limit@latest)
-[![build status](https://img.shields.io/github/actions/workflow/status/aishek/axios-rate-limit/node.js.yml
-)](https://github.com/aishek/axios-rate-limit/actions?query=branch%3Amaster++)
-[![code coverage](https://img.shields.io/coveralls/aishek/axios-rate-limit.svg?style=flat-square)](https://coveralls.io/r/aishek/axios-rate-limit)
-[![install size](https://img.shields.io/badge/dynamic/json?url=https://packagephobia.com/v2/api.json?p=axios-rate-limit&query=$.install.pretty&label=install%20size&style=flat-square)](https://packagephobia.now.sh/result?p=axios-rate-limit)
-[![known vulnerabilities](https://snyk.io/test/npm/axios-rate-limit/badge.svg)](https://snyk.io/test/npm/axios-rate-limit)
+🛠️ Custom fork of [`aishek/axios-rate-limit`](https://github.com/aishek/axios-rate-limit)
 
-A rate limit for [Axios](https://www.npmjs.com/package/axios): set how many requests per interval should perform immediately, other will be delayed automatically.
+A rate limiter for Axios that restricts how many requests per interval are sent.  
+This fork was heavily refactored to enable **advanced traffic shaping**, including:
 
-## Installing
+- Burst grouping (upcoming)
+- Jitter injection
+- Dynamic delay patterns for evading token bucket and sliding window RPS limiters
+
+---
+
+## 🚀 Why This Fork?
+
+This custom version restructures the original library from a factory pattern into a **singleton object**, to better support:
+
+- Centralized control over queue state and internal timers ✅
+- Runtime analytics (`trueRPS` vs configured `maxRPS`) ✅
+- **Dynamic injection of delay, pause, jitter, and burst behavior** *(in active development)*
+- **Optional cancel token awareness for safely skipping queued requests** *(experimental)*
+
+This architecture supports future features like burst grouping, jitter profiles, and adaptive throttling—tailored for adversarial conditions and advanced traffic modulation.
+
+
+## 📦 Installation
 
 ```bash
 npm install axios-rate-limit
-```
+⚠️ This currently installs the upstream version. Clone and link locally until this fork is published under a new name.
 
-## Usage
+---
 
-```javascript
-import axios from 'axios';
-import rateLimit from 'axios-rate-limit';
+📘 Usage
 
-// sets max 2 requests per 1 second, other will be delayed
-// note maxRPS is a shorthand for perMilliseconds: 1000, and it takes precedence
-// if specified both with maxRequests and perMilliseconds
-const http = rateLimit(axios.create(), { maxRequests: 2, perMilliseconds: 1000, maxRPS: 2 })
-http.getMaxRPS() // 2
-http.get('https://example.com/api/v1/users.json?page=1') // will perform immediately
-http.get('https://example.com/api/v1/users.json?page=2') // will perform immediately
-http.getQueue() // [{...}]
-http.get('https://example.com/api/v1/users.json?page=3') // will perform after 1 second from the first one
+import axios from 'axios'
+import rateLimit from 'axios-rate-limit'
 
-// options hot-reloading also available
+// Sets max 2 requests per second
+const http = rateLimit(axios.create(), {
+  maxRequests: 2,
+  perMilliseconds: 1000,
+  maxRPS: 2
+})
+
+// Requests 1 & 2 execute immediately
+http.get('https://example.com/api/v1/users?page=1')
+http.get('https://example.com/api/v1/users?page=2')
+
+// 3rd request delayed by 1 second
+http.get('https://example.com/api/v1/users?page=3')
+
+// Access queue state
+http.getQueue()
+
+// Hot-reload rate options at runtime
 http.setMaxRPS(3)
-http.getMaxRPS() // 3
-http.setRateLimitOptions({ maxRequests: 6, perMilliseconds: 150 }) // same options as constructor
-```
+http.setRateLimitOptions({ maxRequests: 6, perMilliseconds: 150 })
 
-## Alternatives
+// Enable cancelToken-aware behavior
+http.setCancelTokenAware()
 
-Consider using Axios built-in [rate-limiting](https://www.npmjs.com/package/axios#user-content--rate-limiting) functionality.
+📊 Advanced: Tracking Real-Time RPS
+Monitor live dispatched RPS with a callback:
+http.getTrueRPS((trueRPS, maxRPS) => {
+  console.log('trueRPS:', trueRPS)
+  console.log('maxRPS:', maxRPS)
+})
+
+🔄 Alternatives
+axios-rate-limit (original)
+axios-concurrency
+p-queue
+Native Axios v1+ rate-limiting

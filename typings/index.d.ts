@@ -8,7 +8,9 @@ export interface RateLimitedAxiosInstance extends AxiosInstance {
     getQueue: () => RateLimitRequestHandler[],
     getMaxRPS: () => number,
     setMaxRPS: (rps: number) => void,
+    getTrueRPS: (fn: (trueRPS: number, maxRPS: number) => void) => void
     setRateLimitOptions: (options: rateLimitOptions) => void,
+    setCancelTokenAware: () => void,
     // enable(axios: any): void,
     // handleRequest(request:any):any,
     // handleResponse(response: any): any,

@@ -34,7 +34,7 @@ const axiosRateControl = {
         }
 
         if (opts.isDynamic && !opts.isBurst) {
-          throw new Error('axios-rate-control: dynamicRPS requires burst mode. Set isBurst: true ')
+          throw new Error('axios-rate-control: dynamicRPS requires burst mode. Set isBurst: true.')
         }
 
         if (opts.singleton && !ARC.isBatch) {
@@ -83,14 +83,6 @@ const axiosRateControl = {
       rpsLogger(rps) {
         ARC.true_RPS = rps
       },
-
-
-
-
-      // setPause({ maxMilis: 2000, jitterPercent: 40, timeSlots: 10 })
-      // → Base delay: 1200ms (60% of 2000)
-      // → Jitter range: +0–800ms (40% of 2000)
-      // → Final delay range: 1200–2000ms, applied every 10 time slots
 
       setPause(args) {
         ARC.pause_pattern = true

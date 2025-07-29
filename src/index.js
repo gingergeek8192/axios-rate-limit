@@ -42,12 +42,17 @@ const axiosRateControl = {
           axiosRateControl.singleton = ARC
         }
 
-        if (opts.maxRPS) {
+       if (opts.maxRPS) {
           ARC.setMaxRPS(opts.maxRPS)
-        } else {
-          ARC.perMilliseconds = opts.perMilliseconds
+        } else if (opts.numerator && opts.frequency && opts.divisor && opts.isDynamic) {
+          ARC.numerator = opts.numerator
+          ARC.frequency = opts.frequency
+          ARC.divisor = opts.divisor
+        } else if (opts.per_milliseconds && opts.max_requests_per_window) {
+          ARC.per_milliseconds = opts.per_milliseconds
           ARC.max_requests_per_window = opts.max_requests_per_window
-        }
+          //Reminder that properties are not set. This may be intentional for on the fly dynamic RPS adjustments . manually through setMaxRPS or using a burst pattern
+        } else console.warn('axios-rate-control: RPS opts not set. Use setMaxRPS(numerator, frequency, divisor) burst pattern or setMaxRPS(number) ')
       },
 
       enableBatchMode(state) {
@@ -57,19 +62,27 @@ const axiosRateControl = {
         ARC.isBatch = state
       },
 
+      // this is for on the fly dynamic RPS or it will setMaxRPS(30) 
       setMaxRPS(numerator, frequency = false,  divisor = false) {
-       !ARC.numerator && ARC.divisor || (!frequency || !divisor) ? ARC.setRPS(numerator) : ARC.dynamicRPS(numerator, frequency, divisor)
+      if ((!ARC.frequency || !ARC.divisor) && (!frequency || !divisor)) ARC.setRPS(numerator) 
+      else if ((!ARC.frequency || !ARC.divisor) && (frequency && divisor)) ARC.dynamicRPS(numerator, frequency, divisor)
       },
 
       dynamicRPS(numerator, frequency, divisor) {
-       if (opts.isDynamic && !opts.isBurst) console.warn('axios-rate-control: dynamicRPS ignored. Enable burst mode in setRateControlOptions.')
-       ARC.isDynamic && ARC.isBurst ? ARC.setMaxRPS(Math.floor(numerator ? numerator : ARC.numerator / 
-       (++ARC.request_window_counter % frequency ? frequency : ARC.frequency === 0 ? ARC.multiplier += 1 : divisor ? divisor : ARC.divisor))) : 
-       ARC.setRPS(base)
+       if (frequency && divisor) {
+        if (!opts.isDynamic) {
+          throw new Error('axios-rate-control: dynamicRPS requires isDynamic: true.')
+        }
+        ARC.numerator = numerator
+        ARC.frequency = frequency 
+        ARC.divisor = divisor 
+      }
+       ARC.isDynamic ? ARC.setRPS(Math.floor(ARC.numerator / (++ARC.request_window_counter %  ARC.frequency === 0 ? ARC.multiplier += 1 :  ARC.divisor))) : 
+       ARC.setRPS(numerator)
       },
 
-      setRPS() {
-        ARC.setRateControlOptions({ max_requests_per_window: rps, perMilliseconds: 1000 })
+      setRPS(rps) {
+        ARC.setRateControlOptions({ max_requests_per_window: rps, per_milliseconds: 1000 })
       },
 
       getQueue() {
@@ -77,7 +90,7 @@ const axiosRateControl = {
       },
 
       getMaxRPS() {
-        return ARC.max_requests_per_window / (ARC.perMilliseconds / 1000)
+        return ARC.max_requests_per_window / (ARC.per_milliseconds / 1000)
       },
 
       rpsLogger(rps) {
@@ -99,8 +112,6 @@ const axiosRateControl = {
       async pause() {
         if (ARC.request_window_counter % ARC.slots === 0) {
           await new Promise(resolve => setTimeout(resolve, ARC.nominal + Math.floor(Math.random() * ARC.jitter)))
-          ARC.request_window_counter = 0
-          ARC.multiplier = 1
         }
       },
 
@@ -109,7 +120,9 @@ const axiosRateControl = {
           ARC.rpsLogger(ARC.requests_fired_this_window)
           ARC.requests_fired_this_window = 0
           !ARC.isBatch && ARC.dequeue_sequential()
-        }, ARC.perMilliseconds)
+          ARC.request_window_counter = 0
+          ARC.multiplier = 1
+        }, ARC.per_milliseconds)
       },
 
       shiftInitial() {

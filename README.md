@@ -29,12 +29,6 @@ and adaptive throttling—tailored for adversarial conditions and advanced traff
 ## 📦 Installation
 
 ```bash
-npm install axios-rate-limit
-⚠️ This currently installs the upstream version.
-Clone and link locally until this fork is published under a new name.
-
----
-
 📘 Usage
 
 import axios from 'axios'

@@ -1,29 +1,40 @@
 import { AxiosInstance } from 'axios';
 
-export type RateLimitRequestHandler = {
+export type RateControlRequestHandler = {
   resolve: () => boolean
 }
 
-export interface RateLimitedAxiosInstance extends AxiosInstance {
-    getQueue: () => RateLimitRequestHandler[],
-    getMaxRPS: () => number,
-    setMaxRPS: (rps: number) => void,
-    getTrueRPS: (fn: (trueRPS: number, maxRPS: number) => void) => void
-    setRateLimitOptions: (options: rateLimitOptions) => void,
-    setCancelTokenAware: () => void,
-    // enable(axios: any): void,
-    // handleRequest(request:any):any,
-    // handleResponse(response: any): any,
-    // push(requestHandler:any):any,
-    // shiftInitial():any,
-    // shift():any
+export interface RateControlOptions {
+  maxRPS?: number
+  max_requests_per_window?: number
+  perMilliseconds?: number
+  singleton?: boolean
+  isBatch?: boolean
 }
 
-export type rateLimitOptions = {
-    maxRequests?: number,
-    perMilliseconds?: number,
-    maxRPS?: number
-};
+export interface RateControlStats {
+  isBurst: boolean
+  isBatch: boolean
+  trueRPS: number
+  maxRPS: number
+  instance_id: number | string
+}
+
+export interface RateControlRequestHandler {
+  resolve: (req?: any) => boolean | void
+  request?: any
+}
+
+export interface RateControlledAxiosInstance extends AxiosInstance {
+  getQueue: () => RateControlRequestHandler[]
+  getMaxRPS: () => number
+  setMaxRPS: (rps: number) => void
+  getTrueRPS: (fn: (trueRPS: number, maxRPS: number) => void) => void
+  setRateControlOptions: (options: RateControlOptions) => void
+  enableBatchMode: (state: boolean) => void
+}
+
+
 
  /**
   * Apply rate limit to axios instance.
@@ -42,7 +53,7 @@ export type rateLimitOptions = {
   *   http.get('https://example.com/api/v1/users.json?page=3') // will perform after 1 second from the first one
   *   http.setMaxRPS(3)
   *   http.getMaxRPS() // 3
-  *   http.setRateLimitOptions({ maxRequests: 6, perMilliseconds: 150 }) // same options as constructor
+  *   http.setRateControlOptions({ maxRequests: 6, perMilliseconds: 150 }) // same options as constructor
   *
   * @param {Object} axiosInstance axios instance
   * @param {Object} options options for rate limit, available for live update
@@ -53,4 +64,4 @@ export type rateLimitOptions = {
 export default function rateLimit(
     axiosInstance: AxiosInstance,
     options: rateLimitOptions
-): RateLimitedAxiosInstance;
+): RateControledAxiosInstance;

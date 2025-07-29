@@ -5,8 +5,13 @@
 🛠️ Custom fork of [`aishek/axios-rate-limit`](https://github.com/aishek/axios-rate-limit)
 
 
-A rate limiter for Axios that restricts how many requests per interval are sent.  
-This fork was heavily refactored to enable **advanced traffic shaping**, including:
+This is not just a basic rate limiter — while built on axios-rate-limit foundations, this fork adds powerful traffic shaping capabilities designed for advanced use cases such as:
+Dynamic burst grouping and batch request management
+Jitter and randomized pause injection to evade sliding window/token bucket throttlers
+Runtime analytics for real RPS tracking beyond configured limits
+Cancel token awareness for safe request queue skipping
+Highly configurable delay and throttle patterns for adversarial and high-throughput environments
+This enables fine-tuned control of request flow beyond simple fixed-rate limiting.
 
 - Burst grouping (upcoming)
 - Jitter injection

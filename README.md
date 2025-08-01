@@ -3,8 +3,8 @@ Core features are incomplete and APIs may change without notice.
 
 ## 🔧  Why Axios-Rate-Control Replaces axios-rate-limit
 
-This module emerged from a real-world ingestion pipeline targeting 235 TMDB genre endpoints across 6 classes.
-Below are the metrics achieved for the basic equivalent pattern in stage 1 of my ingestion pipeline. 
+This module emerged from a real-world ingestion pipeline.
+Below are metrics achieved for the equivalent patterns in stage 1 of my ingestion pipeline. 
 This package was created from the legacy `axios-rate-limit` to support the following:
 
 - Dynamic mid-cycle calculated RPS patterning 

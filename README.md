@@ -10,7 +10,7 @@ Below are metrics achieved by pipeline stage 1 using this package.
 - 'Pipeline running': '1463s',
 - 'Requests': 2.33M
 - 'Items processed': 45.19M
-- 'Avg RPS Distributed': 1591.53
+- 'Avg RPS Distributed': 1591.53 (RPS over time. req/t. 6 classes / API keys over full duration)
 - 'Categories completed': 235/235
 
 

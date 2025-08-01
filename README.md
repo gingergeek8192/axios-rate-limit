@@ -44,87 +44,117 @@ So you may design precise traffic shapes that match your ingestion or throttle s
 - Set `reset` to time dynamic burst counters and simulate session phases.
 - Combine with `isBatch = true` for concurrent peek / off peek burst pattern window.
 
+---
 
 ### 🎯 Dynamic RPS Modulation: Formula Breakdown
 
-____________________________________________________
 |  Parameter  |             Function               |
 |-------------|------------------------------------|
 | `numerator` |           Base RPS value           |
 | `frequency` |  Switch `counter`/`divisor` ratio  |
 |  `divisor`  |  Fixed alternate  ternary divisor  |
 |   `reset`   |  Sets decrement steps until reset  |
-----------------------------------------------------
 
+##
+
+### 📈 RPS Progression Example
+numerator: 160 - 
+frequency: 2 - 
+divisor: 3 - 
+reset: 30 -
+| RPS: 53 → 80 → 53 → 40 → 53 → 26 → 53 → 20 → 53 → 16 → 53 → 13 → 53 → 11 → 53 → 10 → 53 → 9 ... |
+------------------------------------------------------------------
+
+| Tick | `% frequency === 0`  | Divisor | Expression       | RPS  |
+|------|----------------------|---------|------------------|------|
+| 1    | false                | 3       | 160 / 3          | 53   |
+| 2    | true                 | 2       | 160 / 2          | 80   |
+| 3    | false                | 3       | 160 / 3          | 53   |
+| 4    | true                 | 4       | 160 / 4          | 40   |
+| 5    | false                | 3       | 160 / 3          | 53   |
+| 6    | true                 | 6       | 160 / 6          | 26   |
+| 7    | false                | 3       | 160 / 3          | 53   |
+| 8    | true                 | 8       | 160 / 8          | 20   |
+| 9    | false                | 3       | 160 / 3          | 53   |
+| 10   | true                 | 10      | 160 / 10         | 16   |
+| 11   | false                | 3       | 160 / 3          | 53   |
+| 12   | true                 | 12      | 160 / 12         | 13   |
+| 13   | false                | 3       | 160 / 3          | 53   |
+| 14   | true                 | 14      | 160 / 14         | 11   |
+| 15   | false                | 3       | 160 / 3          | 53   |
+| 16   | true                 | 16      | 160 / 16         | 10   |
+| ...  | ...                  | ...     | ...              | ...  |
+| 30   | true                 | 30      | 160 / 30         | 5    |
+
+→ Counter resets at 30, pattern repeats
+
+##
 ```js
-// RPS Pattern (setDynamic: true)
+// ARC's Internal with (setDynamic: true)
 const rps = Math.floor(numerator / (++counter % frequency === 0 ? counter : divisor)) 
 reset === counter ? (counter = 0) : null
 ```
-
-
-### 📈 RPS Progression Example
-numerator: 100, frequency: 2, divisor: 3, reset: 10
-__________________________________________________________________
-| Tick | `% frequency === 0`  | Divisor | Expression       | RPS  |
-|------|----------------------|---------|------------------|------|
-| 1    | false                | 3       | 100 / 3          | 33   |
-| 2    | true                 | 2       | 100 / 2          | 50   |
-| 3    | false                | 3       | 100 / 3          | 33   |
-| 4    | true                 | 4       | 100 / 4          | 25   |
-| 5    | false                | 3       | 100 / 3          | 33   |
-| 6    | true                 | 6       | 100 / 6          | 16   |
-| 7    | false                | 3       | 100 / 3          | 33   |
-| 8    | true                 | 8       | 100 / 8          | 12   |
-| 9    | false                | 3       | 100 / 3          | 33   |
-| 10   | true                 | 10      | 100 / 10         | 10   |
-__________________________________________________________________
-| RPS: 33 → 50 → 33 → 25 → 33 → 16 → 33 → 12 → 33 → 10            |
-------------------------------------------------------------------
-→ Counter resets, pattern repeat
-
 ---
 
 ### 🧨 Burst Pattern Execution: Delay Modeling
-____________________________________________________________________________________
 |    Pattern Type    |     Execution Point    |          Effective Delay           |
 |--------------------|------------------------|------------------------------------|
-|    Micro Burst     |     Every 6th slot     |    ~1200ms + random(0–800ms)       |
+|    Micro Burst     |     Every 3rd slot     |    ~600ms + random(0–400ms)       |
 |    Macro Burst     |     Every 30th slot    |     6000ms fixed (no jitter)       |
-------------------------------------------------------------------------------------
-🔹 When pattern delays coincide the highest delay wins and all are reset.
 
+🔹 When pattern delays coincide the highest delay wins. Both reset.
 
-```js
-patterns: [{ delay: 2000, jitter: 40, slots: 6 }, { delay: 6000, jitter: 0, slots: 30 }]
-```
+##
 
 #### ⏱️ Jitter Calculation
-Example 1: Jittered Micro-burst
-Base delay = 1200ms (60%), 
-Jitter = up to +800ms (40%), 
-Time slots = 6 = (6th reset)
+**Micro-burst with Jitter**
+- Config: `{ delay: 1000, jitter: 40, slots: 3 }`
+- Base delay: 600ms (60% of 1000) + Jitter: 0-400ms (40% of 1000)
+- Final range: 600-1000ms
+- Every 3rd batch request
 ```js
-{ delay: 2000, jitter: 40, slots: 6 }
 // Equivalent code:
-if (count % 10 === 0) {
-  await new Promise(resolve => setTimeout(resolve, 1200 + Math.floor(Math.random() * 800)))
+if (count % 3 === 0) {
+  await new Promise(resolve => setTimeout(resolve, 600 + Math.floor(Math.random() * 400)))
   count = 0;
 }
-
 ```
-#### ⏱️ Delay Calculation
- Example 2: Macro-burst (No Jitter, low frequency, long pause)
- Base delay = 6000ms (100%), 
- Jitter (0%), 
- Time slots = 30 = (30th Active)
- ```js
+**Macro-burst**
+- Config: `{ delay: 6000, jitter: 0, slots: 30 }`
+- Base delay: 6000ms (100%) + Jitter: (0%)
+- Triggers: Every 30th batch request
+```js
 // Equivalent code:
 if (count % 30 === 0) {
   await new Promise(resolve => setTimeout(resolve, 6000))
   count = 0;
 }
 ```
+**Combined Dynamic RPS + Dual Burst Pattern Execution**
+
+Config: `numerator: 160, frequency: 2, divisor: 3` + Burst patterns every 3rd/30th tick
+
+| Tick | RPS | Window Duration | Burst Type | Notes |
+|------|-----|----------------|------------|-------|
+| 1    | 53  | 1.00s          | None       | Base rate (160/3) |
+| 2    | 80  | 1.00s          | None       | Frequency boost |
+| 3    | 53  | 1.00s + 0.6-1.0s | Micro     | 3-slot burst |
+| 4    | 40  | 1.00s          | None       | Counter increment |
+| 5    | 53  | 1.00s          | None       | Divisor pattern |
+| 6    | 26  | 1.00s + 0.6-1.0s | Micro     | 3-slot burst |
+| 7    | 53  | 1.00s          | None       | Post-burst resume |
+| 8    | 20  | 1.00s          | None       | Lower RPS phase |
+| 9    | 53  | 1.00s + 0.6-1.0s | Micro     | 3-slot burst |
+| 10   | 16  | 1.00s          | None       | Minimum RPS |
+| 12   | 80  | 1.00s + 0.6-1.0s | Micro     | 3-slot burst |
+| ...  | ... | ...            | ...        | ... |
+| 30   | 16  | 1.00s + 6.0s   | **Macro**  | **30-slot cooldown** |
+| 31   | 53  | 1.00s          | None       | Post-cooldown |
+
+- **Micro bursts**: Every 3rd tick adds 0.6-1.0s jittered delay  
+- **Macro cooldown**: Every 30th tick adds 6.0s fixed delay
+- **Priority**: Macro overrides micro when both trigger simultaneously
+
 ---
 
 
@@ -166,6 +196,15 @@ http.axiosControl(
 
 
 ---
+```
+```js
+.setBurst({ 
+  isBurst: true,
+  patterns: [
+    { delay: 2000, jitter: 40, slots: 6 }, 
+    { delay: 6000, jitter: 0, slots: 30 }
+  ]
+})
 ```
 🔄 **More features, patterns, and control modes coming soon.**  
 ARC is under active re-construction expect frequent updates and architecture refinements.

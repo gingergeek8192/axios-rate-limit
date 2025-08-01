@@ -148,9 +148,6 @@ Config: `numerator: 160, frequency: 2, divisor: 3` + Burst patterns every 3rd/30
 
 ---
 
-
-
-
 ## 📘 Usage
 ```js
 // Attaching ARC 
@@ -178,18 +175,35 @@ http.axiosControl(
   }
   Promise.all(promises)
 
-  http.setMaxRPS(30)
-
-  http.setMaxRPS({ numerator: 160, divisor: 3, frequency: 2, reset: 30 })
-
-  http.setBatch(true)
-  http.setBatch(false)  
-
-
----
 ```
 ```js
-.setBurst({ 
+
+  http.setMaxRPS(30)
+  http.setMaxRPS({ numerator: 160, divisor: 3, frequency: 2, reset: 30 })
+
+```
+---
+Batch / Sequential mode may be toggled at runtime with RPS mode option. 
+When switching from sequential to batch mode you may also set queueDump: true which will return the current enqueued requests
+which will resolve `false` instead of actual data.
+The returned queue items contain the original request configurations, allowing you to re-submit cancelled requests.
+
+```js
+  .setBatch()
+
+  http.setBatch(false) // switches to sequential mode
+  http.setBatch(true)  // switches to batch mode
+  http.setBatch(true, 30) // switches to batch mode + RPS to 30
+  http.setBatch(true, { numerator: 160, frequency: 2, divisor: 3, reset: 30 }) // sets batch mode + dynamic RPS
+  http.setBatch(true, { queueDump: true }) // sets batch mode + clears and returns the existing request queue
+  http.setBatch(true, { isDynamic: true, numerator: 160, frequency: 2, divisor: 3, reset: 30, queueDump: true }) // all combined
+
+```
+
+```js
+  .setBurst()
+
+http.setBurst({ 
   isBurst: true,
   patterns: [
     { delay: 2000, jitter: 40, slots: 6 }, 

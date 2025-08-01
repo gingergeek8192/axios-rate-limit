@@ -46,8 +46,12 @@ const axiosRateControl = {
         else if (RPS.numerator && RPS.frequency && RPS.divisor && RPS.reset) ARC.dynamicRPS(RPS)
       },
 
-      setBatch(state) {
+      setBatch(state, config = false) {
+        const dump = config.queueDump ? ARC.queueDump() : null
         ARC.isBatch = state
+        if (config.isDynamic) ARC.setIsDynamic(config)
+        else if (!config.isDynamic) ARC.setMaxRPS(config)
+        return dump
       },
 
       getQueue() {
@@ -212,7 +216,7 @@ const axiosRateControl = {
             .map(({ resolve, request }) => {
               if (resolve(request) !== false) ARC.requests_fired_this_window += 1
             })
-          ARC.cache.splice(0, ARC.max_requests)
+          ARC.cache.splice(0, ARC.requests_fired_this_window)
         }
         if (ARC.cache.length >= ARC.max_requests && ARC.requests_fired_this_window === 0) {
           batch_resolve()

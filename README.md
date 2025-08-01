@@ -49,12 +49,12 @@ This section explains how to **calculate**, **predict**, and **simulate** the in
 const rps = Math.floor(numerator / (counter % frequency === 0 ? counter : divisor))
 ```
 ____________________________________________________
-|= Parameter =|========      Function     ======== |
+|  Parameter  |             Function               |
 |-------------|------------------------------------|
-| `numerator` |=======    Base RPS value    =======|
-| `frequency` |= Switch `counter`/`divisor` ratio =|
-|  `divisor`  |= Fixed alternate  ternary divisor =|
-|   `reset`   |= Sets decrement steps until reset =|
+| `numerator` |           Base RPS value           |
+| `frequency` |  Switch `counter`/`divisor` ratio  |
+|  `divisor`  |  Fixed alternate  ternary divisor  |
+|   `reset`   |  Sets decrement steps until reset  |
 ----------------------------------------------------
 
 ### 📈 RPS Progression Example
@@ -179,3 +179,9 @@ http.axiosControl(
 
   http.setBatch(true)
   http.setBatch(false)  
+
+
+---
+```
+🔄 **More features, patterns, and control modes coming soon.**  
+ARC is under active re-construction expect frequent updates and architecture refinements.

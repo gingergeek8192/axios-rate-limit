@@ -1,116 +1,208 @@
-# axios-rate-limit (Custom Fork)
+⚠️ DEVELOPMENT WARNING: This package is currently under active refactor and restructuring. NOT production-ready. 
+Core features are incomplete and APIs may change without notice.
 
-> ⚠️ **DEVELOPMENT WARNING**: This fork is currently under active development and is **NOT production-ready**. Core features are incomplete and APIs may change without notice. Use the [original axios-rate-limit](https://github.com/aishek/axios-rate-limit) for production applications.
+## 🔧  Why Axios-Rate-Control Replaces axios-rate-limit
 
-🛠️ Custom fork of [`aishek/axios-rate-limit`](https://github.com/aishek/axios-rate-limit)
+This module emerged from a real-world ingestion pipeline targeting 235 TMDB genre endpoints across 6 classes.
+Below are the metrics achieved for the basic equivalent pattern in stage 1 of my ingestion pipeline. 
+This package was created from the legacy `axios-rate-limit` to support the following:
+
+- Dynamic mid-cycle calculated RPS patterning 
+- Set and forget controlled active request / pause patterns
+- Peek burst patterns to mimic random / humanized requests to utilize burst tolerance 
+- concurrent and sequential RPS mode
+- Full orchestration via exposed rate control methods
+
+**Example Stage 1 Metrics (from live ingestion) using burst pattern and dynamic RPS:**
+- 'Pipeline running': '1463s',
+- 'Requests': 2.33M
+- 'Items processed': 45.19M
+- 'Avg RPS Distributed': 1591.53
+- 'Categories completed': 235/235
+
+**RPS and jitter pattern equivalent logic:**  
+Dynamic RPS + burst pauses injected at intervals → prevents detection  
+```js
+const batchSize = Math.min(page + http.getMaxRPS(), total_pages)
+http.setMaxRPS(Math.floor(160 / (++count % 2 === 0 ? multiplier += 1 : 3)))
+if (count % 3 === 0) await new Promise(resolve => setTimeout(resolve, 1200 + Math.floor(Math.random() * 800)))
+if (count % 30 === 0) {
+  await pause(6000)
+  count = 0
+  multiplier = 1
+}
+
+```
+In order to use dynamic RPS , pause jitter and burst rates across multiple stages, the old axios-rate-limit 
+has been heavily refactored and now supports: 
+
+✅ Direct RPS modulation using .setMaxRPS()
+✅ mode switch using .setBatch()
+✅ Controlled burst shaping with per-pattern delay + jitter with .setBurst()
+✅ Internal state visibility via .getStats() and .getQueue()
+✅ Both singleton-global control and isolated instance control 
+✅ Concurrent batch request via .getMaxRPS() and sequential request enqueue
+✅ Throughput: 1,591.53 RPS sustained over 2.33M requests
 
 
-This is not just a basic rate limiter — while built on axios-rate-limit foundations, this fork adds powerful traffic shaping capabilities designed for advanced use cases such as:
-Dynamic burst grouping and batch request management
-Jitter and randomized pause injection to evade sliding window/token bucket throttlers
-Runtime analytics for real RPS tracking beyond configured limits
-Cancel token awareness for safe request queue skipping
-Highly configurable delay and throttle patterns for adversarial and high-throughput environments
-This enables fine-tuned control of request flow beyond simple fixed-rate limiting.
 
-- Burst grouping (upcoming)
-- Jitter injection
-- Dynamic delay patterns for evading token bucket and sliding window RPS limiters
+
+### 🔧 Available Methods 
+
+```js
+http.axiosControl() // Attach ARC to axios instance with config settings
+http.setOptions() // Runtime config settings dynamic switch / injection
+http.getMaxRPS() // Concurrent batch size / RPS alignment 
+http.setMaxRPS() // Runtime RPS modification / modulation
+http.setBatch() // Set unset sequential / concurrent - with config
+http.setBurst() // Runtime timer pattern modulation config
+http.getQueue() // Runtime gets reference to current queue array
+http.queueDump() // Runtime returns full enqueue array dump. Clears and cancels requests 
+http.getStats() // Runtime returns stats trueRPS, maxRPS, ARC instance id
+ 
+
+
+```
+## 🧮 Pattern Calculation & Execution Guide
+
+This section explains how to **calculate**, **predict**, and **simulate** the internal request patterning logic based on ARC's configuration parameters. So you may design precise traffic shapes that match your ingestion or throttle strategy.
 
 ---
 
-## 🚀 Why This Fork?
+### 🎯 Dynamic RPS Modulation: Formula Breakdown
 
-This custom version restructures the original library to better support:
+```js
+// Internal RPS logic when setDynamic = true
+const rps = Math.floor(numerator / (counter % frequency === 0 ? counter : divisor))
+```
+____________________________________________________
+|= Parameter =|========      Function     ======== |
+|-------------|------------------------------------|
+| `numerator` |=======    Base RPS value    =======|
+| `frequency` |= Switch `counter`/`divisor` ratio =|
+|  `divisor`  |= Fixed alternate  ternary divisor =|
+|   `reset`   |= Sets decrement steps until reset =|
+----------------------------------------------------
 
-- Centralized control over queue state and internal timers ✅
-- Runtime analytics (`trueRPS` vs configured `maxRPS`) ✅
-- **Dynamic injection of delay, pause, jitter, and burst behavior** _(in active development)_
-- **Optional cancel token awareness for safely skipping queued requests** _(experimental)_
+### 📈 RPS Progression Example
 
-This architecture supports future features like burst grouping, jitter profiles,
-and adaptive throttling—tailored for adversarial conditions and advanced traffic modulation.
 
-## 📦 Installation
+numerator: 100, frequency: 2, divisor: 3, reset: 10
 
-```bash
-📘 Usage
+Tick 1  → 100 / 3  = 33  
+Tick 2  → 100 / 2  = 50  
+Tick 3  → 100 / 3  = 33  
+Tick 4  → 100 / 4  = 25  
+Tick 5  → 100 / 3  = 33  
+Tick 6  → 100 / 6  = 16  
+Tick 7  → 100 / 3  = 33  
+Tick 8  → 100 / 8  = 12  
+Tick 9  → 100 / 3  = 33  
+Tick 10 → 100 / 10 = 10  
+→ Counter resets, pattern repeats
 
-import axios from 'axios'
-import rateLimit from 'axios-rate-limit'
+Tick	% freq === 0	Divisor Used	RPS (⌊100 / divisor⌋)
+1	false	3	33
+2	true	2	50
+3	false	3	33
+4	true	4	25
+5	false	3	33
+6	true	6	16
+7	false	3	33
+8	true	8	12
+9	false	3	33
+10	true	10	10
+RPS: 33 → 50 → 33 → 25 → 33 → 16 → 33 → 12 → 33 → 10
+→ Counter resets, pattern repeats
 
-// Sets max 2 requests per second
-const http = rateLimit(axios.create(), {
-  maxRequests: 2,
-  perMilliseconds: 1000,
-})
 
-const http = rateLimit(axios.create(), {
-  maxRPS: 2
-})
+✅ Use this to fine-tune throughput while breaking static detection thresholds.
 
-const http = rateLimit(axios.create(), {
-  isBatch: true
-})
+---
 
-const http = rateLimit(axios.create(), {
-  singleton: true
-  isBatch: false
-})
+### 🧨 Burst Pattern Execution: Delay Modeling
 
-// Advanced: Dynamic RPS Adjustment for Evasion
-let count = 0, multiplier = 1
 
-// Batch processing with unpredictable rate changes
-const batchSize = http.getMaxRPS()
-for (let i = 0; i < batchSize; i++) {
-  promises.push(http.get(`/api/data?page=${i + 1}`))
+Configuration passed to .setBurst() / .setOptions() / .axiosControl()
+```js
+{
+  slots: 10,
+  delay: 2000,
+  jitter: 40
 }
 
-// Dynamic rate adjustment after each batch
-http.setMaxRPS(Math.floor(160 / (++count % 2 === 0 ? multiplier += 1 : 3)))
 
-await Promise.all(promises)
-
-
-Each call to `rateLimit()` produces a scoped limiter,
-with isolated state across instances.
-
-// Requests 1 & 2 execute immediately
-instance.get('https://example.com/api/v1/users?page=1')
-instance.get('https://example.com/api/v1/users?page=2')
-
-// 3rd request delayed by 1 second
-instance.get('https://example.com/api/v1/users?page=3')
-
-
-      // setPause({ maxMilis: 2000, jitterPercent: 40, timeSlots: 10 })
-      // → Base delay: 1200ms (60% of 2000)
-      // → Jitter range: +0–800ms (40% of 2000)
-      // → Final delay range: 1200–2000ms, applied every 10 time slots
-
-// Access queue state
-instance.getQueue()
-
-// Hot-reload rate options at runtime
-instance.setMaxRPS(3)
-instance.setRateLimitOptions({ maxRequests: 6, perMilliseconds: 150 })
-
-// Enable cancelToken-aware behavior
-instance.setCancelTokenAware()
-
-// Tracking Real-Time RPS
-// Monitor live dispatched RPS with a callback, logs per p/s limit window
-
-    instance.getTrueRPS((trueRPS, maxRPS, instance_counter) => {
-        console.log('trueRPS:', trueRPS) // requests dequeued
-        console.log('maxRPS:', maxRPS) // maximum requests
-        console.log('instance_counter:', instance_counter) // rate limiter instance attached
-    })
-
-🔄 Alternatives
-axios-rate-limit (original)
-axios-concurrency
-p-queue
-Native Axios v1+ rate-limiting
+#### ⏱️ Final Delay Calculation
 ```
+Example 1: Jittered Micro-burst
+Base delay = 1200ms (60%), Jitter = up to +800ms (40%), Time slots = 10 = (10th reset)
+ ```js
+
+ Config: { delay: 2000, jitter: 40, slots: 10 }
+if (count % 10 === 0) {
+  await new Promise(resolve => setTimeout(resolve, 1200 + Math.floor(Math.random() * 800)))
+  count = 0;
+}
+```
+ Example 2: Macro-burst (No Jitter, low frequency, long pause)
+ Base delay = 6000ms (100%), Jitter (0%), Time slots = 30 = (30th Active)
+ ```js
+
+ Config: { delay: 6000, jitter: 0, slots: 30 }
+if (count % 30 === 0) {
+  await new Promise(resolve => setTimeout(resolve, 6000))
+  count = 0;
+}
+```
+____________________________________________________________________________________
+|    Pattern Type    |     Execution Point    |          Effective Delay           |
+|--------------------|------------------------|------------------------------------|
+|    Micro Burst     |   Every 10th request   |    ~1200ms + random(0–800ms)       |
+|    Macro Burst     |   Every 30th request   |     6000ms fixed (no jitter)       |
+|  Competing Bursts  |   If multiple match    | Highest delay pattern is executed  |
+------------------------------------------------------------------------------------
+🧠 ARC resets burst counters after execution, ensuring **non-overlapping delay injection** even with multiple patterns. Perfect for simulating human-like traffic pacing or absorbent back-off windows.
+
+---
+
+### 📘 Pattern Design Workflow
+
+- Start with `numerator`, `divisor`, and `frequency` to shape your sustained RPS curve.
+- Layer to inject rhythm breaks at controlled request slot intervals.
+- Set `reset` to time dynamic burst counters and simulate session phases.
+- Combine with `isBatch = true` for concurrent peek / off peek burst pattern window.
+
+
+## 📘 Usage
+```js
+// Attaching ARC 
+http.axiosControl(
+  axios.create(), {
+    isBatch: true,
+    setDynamic: true,
+    numerator: 160,
+    frequency: 2,
+    divisor: 3,
+    reset: 30,
+    isBurst: true,
+    patterns: [
+      { delay: 2000, jitter: 40, slots: 10 },
+      { delay: 6000, slots: 30 }
+    ]
+})
+
+// Batch mode concurrent requests
+// ❗ Batch length must respect live tick cap via .getMaxRPS()
+ const batchSize = http.getMaxRPS()
+ const promises = []
+  for (let i = 0; i < batchSize; i++) {
+    promises.push(http.get(`/api/data?page=${i + 1}`))
+  }
+  Promise.all(promises)
+
+  http.setMaxRPS(30)
+
+  http.setMaxRPS({ numerator: 160, divisor: 3, frequency: 2, reset: 30 })
+
+  http.setBatch(true)
+  http.setBatch(false)  

@@ -4,14 +4,7 @@ Core features are incomplete and APIs may change without notice.
 ## 🔧  Why Axios-Rate-Control Replaces axios-rate-limit
 
 This module emerged from a real-world ingestion pipeline.
-Below are metrics achieved for the equivalent patterns in stage 1 of my ingestion pipeline. 
-This package was created from the legacy `axios-rate-limit` to support the following:
-
-- Dynamic mid-cycle calculated RPS patterning 
-- Set and forget controlled active request / pause patterns
-- Peek burst patterns to mimic random / humanized requests to utilize burst tolerance 
-- concurrent and sequential RPS mode
-- Full orchestration via exposed rate control methods
+Below are metrics achieved by pipeline stage 1 using this package. 
 
 **Example Stage 1 Metrics (from live ingestion) using burst pattern and dynamic RPS:**
 - 'Pipeline running': '1463s',
@@ -20,32 +13,12 @@ This package was created from the legacy `axios-rate-limit` to support the follo
 - 'Avg RPS Distributed': 1591.53
 - 'Categories completed': 235/235
 
-**RPS and jitter pattern equivalent logic:**  
-Dynamic RPS + burst pauses injected at intervals → prevents detection  
-```js
-const batchSize = Math.min(page + http.getMaxRPS(), total_pages)
-http.setMaxRPS(Math.floor(160 / (++count % 2 === 0 ? multiplier += 1 : 3)))
-if (count % 3 === 0) await new Promise(resolve => setTimeout(resolve, 1200 + Math.floor(Math.random() * 800)))
-if (count % 30 === 0) {
-  await pause(6000)
-  count = 0
-  multiplier = 1
-}
-
-```
-In order to use dynamic RPS , pause jitter and burst rates across multiple stages, the old axios-rate-limit 
-has been heavily refactored and now supports: 
-
-✅ Direct RPS modulation using .setMaxRPS()
-✅ mode switch using .setBatch()
-✅ Controlled burst shaping with per-pattern delay + jitter with .setBurst()
-✅ Internal state visibility via .getStats() and .getQueue()
-✅ Both singleton-global control and isolated instance control 
-✅ Concurrent batch request via .getMaxRPS() and sequential request enqueue
-✅ Throughput: 1,591.53 RPS sustained over 2.33M requests
 
 
+## ⚙️ Axios-Rate-Control API Surface
 
+Modular control layer for deterministic, burst-aware traffic shaping.  
+Provides runtime orchestration, visibility, and per-instance configuration.
 
 ### 🔧 Available Methods 
 

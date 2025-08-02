@@ -74,7 +74,7 @@ const axiosRateControl = {
         return {
           trueRPS: ARC.true_RPS,
           maxRPS: ARC.getMaxRPS(),
-          instance_id: !axiosRateControl.singleton ? ARC.instance_id : "singleton",
+          instanceID: !axiosRateControl.singleton ? ARC.instance_id : "singleton",
         }
       },
 

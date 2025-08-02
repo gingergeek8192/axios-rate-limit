@@ -13,9 +13,10 @@ Below are metrics achieved using a previous unpublished version this package.
 - 'Avg RPS Distributed': 1591.53 (Req/Time - full duration - 6 fetcher classes/API keys )
 - 'Categories completed': 235/235
 
-
+---
 
 ## ⚙️ Axios-Rate-Control API Surface
+
 A modular control layer for deterministic, burst-aware traffic shaping.  
 Provides runtime orchestration, visibility, and per-instance configuration.
 
@@ -44,7 +45,7 @@ So you may design precise traffic shapes that match your ingestion or throttle s
 - Set `reset` to time dynamic burst counters and simulate session phases.
 - Combine with `isBatch = true` for concurrent peek / off peek burst pattern window.
 
----
+##
 
 ### 🎯 Dynamic RPS Modulation: Formula Breakdown
 
@@ -79,7 +80,6 @@ So you may design precise traffic shapes that match your ingestion or throttle s
 
 → Counter resets at 30, pattern repeats
 
-##
 ```js
 // ARC's Internal with (setDynamic: true)
 const rps = Math.floor(numerator / (++counter % frequency === 0 ? counter : divisor)) 
@@ -87,7 +87,7 @@ reset === counter ? (counter = 0) : null
 ```
 ---
 
-### 🧨 Burst Pattern Execution: Delay Modeling
+### 💥  Burst Pattern Execution: Delay Modeling
 |    Pattern Type    |     Execution Point    |          Effective Delay           |
 |--------------------|------------------------|------------------------------------|
 |    Micro Burst     |     Every 3rd slot     |    ~600ms + random(0–400ms)       |
@@ -139,11 +139,11 @@ Config: `numerator: 160, frequency: 2, divisor: 3` + Burst patterns every 3rd/30
 | 10   | 16  | 1.00s          | None       | Minimum RPS |
 | 12   | 80  | 1.00s + 0.6-1.0s | Micro     | 3-slot burst |
 | ...  | ... | ...            | ...        | ... |
-| 30   | 16  | 1.00s + 6.0s   | **Macro**  | **30-slot cooldown** |
-| 31   | 53  | 1.00s          | None       | Post-cooldown |
+| 30   | 16  | 1.00s + 6.0s   | **Macro**  | **30-slot cool-down** |
+| 31   | 53  | 1.00s          | None       | Post-cool-down |
 
 - **Micro bursts**: Every 3rd tick adds 0.6-1.0s jittered delay  
-- **Macro cooldown**: Every 30th tick adds 6.0s fixed delay
+- **Macro cool-down**: Every 30th tick adds 6.0s fixed delay
 - **Priority**: Macro overrides micro when both trigger simultaneously
 
 ---
@@ -166,23 +166,45 @@ http.axiosControl(
     ]
 })
 
-// Batch mode concurrent requests
-// ❗ Batch length must respect live tick cap via .getMaxRPS()
- const batchSize = http.getMaxRPS()
- const promises = []
-  for (let i = 0; i < batchSize; i++) {
-    promises.push(http.get(`/api/data?page=${i + 1}`))
-  }
-  Promise.all(promises)
-
 ```
-```js
 
-  http.setMaxRPS(30)
-  http.setMaxRPS({ numerator: 160, divisor: 3, frequency: 2, reset: 30 })
 
-```
 ---
+ℹ️
+```js
+.getStats()
+// Stats Report
+
+console.log(http.getStats()) // Returns the most recent tick metrics:
+{
+  "trueRPS": number, // trueRPS: Number of requests executed in the previous tick
+  "maxRPS": number, // Configured rate per second
+  "instanceID": number | 'singleton' // ARC instance number or "singleton" if shared
+}
+
+```
+
+---
+
+### Runtime RPS Switching
+
+When running in basic limiter mode it is possible to implement a custom dynamic RPS or simply pass in the desired RPS
+at runtime. In dynamic mode both sequential and batch, RPS patterns can be changed on-the-fly. 
+Just remember to call getMaxRPS to sync batch size/current RPS
+
+🏎️
+```js
+  .setMaxRPS()
+  // Hot RPS change
+
+  http.setMaxRPS(30) // Changes RPS in basic limiter mode.
+  http.setMaxRPS({ numerator: 160, divisor: 3, frequency: 2, reset: 30 }) // Changes RPS in dynamic mode.
+
+```
+
+
+### Runtime Mode Switching
+
 Batch / Sequential mode may be toggled at runtime with RPS mode option. 
 When switching from sequential to batch mode you may also set queueDump: true which will return the current enqueued requests
 which will resolve `false` instead of actual data.
@@ -190,15 +212,28 @@ The returned queue items contain the original request configurations, allowing y
 
 ```js
   .setBatch()
-
-  http.setBatch(false) // switches to sequential mode
-  http.setBatch(true)  // switches to batch mode
-  http.setBatch(true, 30) // switches to batch mode + RPS to 30
-  http.setBatch(true, { numerator: 160, frequency: 2, divisor: 3, reset: 30 }) // sets batch mode + dynamic RPS
-  http.setBatch(true, { queueDump: true }) // sets batch mode + clears and returns the existing request queue
-  http.setBatch(true, { isDynamic: true, numerator: 160, frequency: 2, divisor: 3, reset: 30, queueDump: true }) // all combined
+  // Hot mode switching
+  
+  http.setBatch(false) // Switches to sequential mode.
+  http.setBatch(true)  // Switches to batch mode.
+  http.setBatch(true, 30) // Switches to batch mode + RPS to 30.
+  http.setBatch(true, { numerator: 160, frequency: 2, divisor: 3, reset: 30 }) // Sets batch mode + dynamic RPS.
+  http.setBatch(true, { queueDump: true }) // Sets batch mode + clears and returns the existing request queue.
+  http.setBatch(true, { isDynamic: true, numerator: 160, frequency: 2, divisor: 3, reset: 30, queueDump: true }) // Combined dynamic mode use
 
 ```
+
+ ❗ Batch length must respect live tick cap via .getMaxRPS()
+```js
+// Batch mode concurrent requests
+ const batchSize = http.getMaxRPS()
+ const promises = []
+  for (let i = 0; i < batchSize; i++) {
+    promises.push(http.get(`/api/data?page=${i + 1}`))
+  }
+  Promise.all(promises)
+```
+
 
 ```js
   .setBurst()
@@ -211,7 +246,61 @@ http.setBurst({
   ]
 })
 ```
+
+
 🔄 **More features, patterns, and control modes coming soon.**  
 ARC is under active re-construction expect frequent updates and architecture refinements.
 
+icon folder
+  
+- Configurable settings via JSON
 
+Files & Structure
+📁 Folder
+
+🗂️ File Group
+
+🧱 Component
+
+🧾 Logs
+
+🧩 Plugin
+
+Development
+⚙️ Config
+
+🔧 Tools
+
+📦 Package
+
+💻 Code
+
+🧪 Tests
+
+Docs & Info
+📝 Docs
+
+📚 Reference
+
+📊 Metrics
+
+ℹ️ Info
+
+Project / Meta
+🚀 Launch
+
+🧠 Idea
+💥 for aggressive/high RPS burst
+
+🚀 for launch/speed burst
+
+💨
+⛏️ Work in progress
+
+✅ Done
+
+❌ Deprecated
+
+🔥 Hotfix
+
+🧨 

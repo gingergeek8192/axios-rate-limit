@@ -12,15 +12,13 @@ Steady sustained request rates within advertised limits yield significantly lowe
 By introducing dynamic RPS shifting, utilizing peek request burst tolerance with short pause jitter patterns and cool-off periods,
 A far higher RPS can be sustained over extended periods.
 
-Below are metrics achieved ARC v1 - 100% verified repeatable results.
+Below are metrics achieved ARC v1 
 
 - 'Pipeline running': '1463s',
 - 'Requests': 2.33M
-- 'Items processed': 45.19M - (average 20 results/req)
-- 'Avg RPS Distributed': 1591.53 - (Req/Time - full duration - 6 fetcher classes/API keys )
-- 'Categories completed': 235/235 - (Genre endpoints generated from combinations of id,id)
-
-> (From stage 1 ingestion pipeline - suzieViews database... Also Coming soon)
+- 'Items processed': 45.19M 
+- 'Avg RPS Distributed': 1591.53 
+- 'Categories completed': 235/235 
 
 ---
 

@@ -12,20 +12,29 @@ Steady sustained request rates within advertised limits yield significantly lowe
 By introducing dynamic RPS shifting, utilizing peek request burst tolerance with short pause jitter patterns and cool-off periods,
 A far higher RPS can be sustained over extended periods.
 
-Below are metrics achieved ARC v1 
+Below are metrics achieved ARC v1 used in and active ingestion pipeline
 
 - 'Pipeline running': '1463s',
 - 'Requests': 2.33M
-- 'Items processed': 45.19M 
-- 'Avg RPS Distributed': 1591.53 
-- 'Categories completed': 235/235 
+- 'Items processed': 45.19M
+- 'Avg RPS Distributed': 1591.53
+- 'Categories completed': 235/235
 
 ---
 
 ## 📦 Axios-Rate-Control
 
-A modular control layer for deterministic, burst-aware traffic shaping.  
-Provides runtime orchestration, visibility, and per-instance configuration.
+Advanced HTTP request rate limiting with dynamic throttling patterns and burst control.
+Unlike simple fixed-rate limiters, ARC provides RPS modulation, burst pattern injection, and runtime reconfiguration capabilities.
+Axios-Rate-Control intercepts HTTP requests through axios interceptors and applies sophisticated rate limiting algorithms. 
+
+Core Features:
+Dynamic RPS Modulation: Vary request rates over time using configurable formulas
+Burst Pattern Control: Inject controlled delays at specific intervals with jitter patterns
+Dual Processing Modes: Sequential queuing or concurrent batching with runtime switching
+Runtime Reconfiguration: Hot-swap rate limits, burst patterns, and processing modes without restart
+Request Queue Management: Inspect, dump, and recover pending requests for  during mode transitions
+
 
 ## 🧮 Pattern Calculation & Execution Guide
 
@@ -303,8 +312,6 @@ The returned queue items contain the original request configurations, allowing y
 
 ```
 
- 
-
 ```js
   .setBurst()
 
@@ -329,16 +336,13 @@ console.log(http.getStats()) // Returns the most recent tick metrics:
 }
 
 ```
+
 ---
-
-
 
 🔄 **More features, patterns, and control modes coming soon.**  
 ARC is under active re-construction expect frequent updates and architecture refinements.
 Sequential and Batch mode allows on-the-fly RPS switching.
 icon folder
-
-
 
 - Configurable settings via JSON
 

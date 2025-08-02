@@ -12,6 +12,7 @@ const axiosRateControl = {
 
     const defaults = {
       instance_id: 0,
+      arc_id: null,
       queue: [],
       cache: [],
       burst: [],
@@ -74,8 +75,12 @@ const axiosRateControl = {
         return {
           trueRPS: ARC.true_RPS,
           maxRPS: ARC.getMaxRPS(),
-          instanceID: !axiosRateControl.singleton ? ARC.instance_id : "singleton",
+          instanceID: !axiosRateControl.singleton ? (ARC.arc_id ? ARC.instance_id : ARC.arc_id) : 'unified',
         }
+      },
+
+      setID(id) {
+        ARC.arc_id = id
       },
 
       setOptions(opts) {
@@ -98,17 +103,16 @@ const axiosRateControl = {
       },
 
       setIsDynamic(dynamic) {
-        if (dynamic.setDynamic && !ARC.isDynamic) ARC.isDynamic = dynamic.setDynamic
+        if (dynamic.isDynamic && !ARC.isDynamic) ARC.isDynamic = dynamic.isDynamic
         const keys = ['numerator', 'frequency', 'divisor', 'reset']
         const missing = ARC.checkMissing(dynamic, keys)
-        if (dynamic.setDynamic && missing.length) console.warn(`axios-rate-control: Dynamic mode set without: ${missing.join(', ')}. Use runtime setMaxRPS(frequency: number, divisor: number, numerator: number, reset: number)`)
+        if (dynamic.isDynamic && missing.length) console.warn(`axios-rate-control: Dynamic mode set without: ${missing.join(', ')}. Use runtime setMaxRPS(frequency: number, divisor: number, numerator: number, reset: number)`)
         ARC.numerator = dynamic.numerator ?? 100
         ARC.frequency = dynamic.frequency ?? 2
         ARC.divisor = dynamic.divisor ?? 3
         ARC.reset = dynamic.reset ?? 10
-        if (!dynamic.setDynamic && keys.every(key => dynamic[key] === dynamicDefaults[key])) console.warn(`axios-rate-control: Runtime dynamicRPS called with default values - ensure setMaxRPS(frequency: number, divisor: number, numerator: number, reset: number)`)
+        if (!dynamic.isDynamic && keys.every(key => dynamic[key] === dynamicDefaults[key])) console.warn(`axios-rate-control: Runtime dynamicRPS called with default values - ensure setMaxRPS(frequency: number, divisor: number, numerator: number, reset: number)`)
       },
-
 
       setSingleton() {
         axiosRateControl.unified = true;
@@ -121,18 +125,18 @@ const axiosRateControl = {
       },
 
       setRateControlOptions(opts) {
+        if (opts.setID) ARC.setID(opts.setID)
         opts.isBatch ? ARC.setBatch(true) : ARC.setBatch(false)
-        if (opts.maxRPS && !opts.setDynamic) ARC.isSetMax(opts.maxRPS)
-        else if (opts.maxRPS && opts.setDynamic) throw new Error('axios-rate-control: Dynamic mode cannot be enabled with maxRPS: number.')
+        if (opts.maxRPS && !opts.isDynamic) ARC.isSetMax(opts.maxRPS)
+        else if (opts.maxRPS && opts.isDynamic) throw new Error('axios-rate-control: Dynamic mode cannot be enabled with maxRPS: number.')
 
-        if (opts.unified && !opts.setDynamic) return ARC.setSingleton()
-        else if (opts.unified && opts.setDynamic) throw new Error('axios-rate-control: Dynamic mode cannot be enabled with singleton: true.')
+        if (opts.unified && !opts.isDynamic) return ARC.setSingleton()
+        else if (opts.unified && opts.isDynamic) throw new Error('axios-rate-control: Dynamic mode cannot be enabled with singleton: true.')
 
-        if (opts.setDynamic) ARC.setIsDynamic(opts)
+        if (opts.isDynamic) ARC.setIsDynamic(opts)
         if (opts.isBurst && Array.isArray(opts.patterns)) ARC.setBurst({ isBurst: true, patterns: opts.patterns })
         else if (opts.isBurst && !opts.patterns) ARC.setIsBurst()
       },
-
 
       setIsBurst() {
         ARC.isBurst = true

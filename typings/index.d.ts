@@ -49,7 +49,6 @@ export interface RateControlledAxiosInstance extends AxiosInstance {
   setMaxRPS: (rps: number | DynamicRPSConfig) => void
   setMaxRPS: (rps: number) => void
   getStats: () => RateControlStats
-  setOptions: (options: RateControlOptions) => void
   queueDump: () => any[]
   setBurst: ( config: BurstConfig) => void
   setBatch: (state: boolean) => void
